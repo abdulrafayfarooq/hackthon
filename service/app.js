@@ -15,8 +15,8 @@ app.use(cors({
 app.use(express.json());
 
 // Serve static files from the 'web/build' folder
-app.use('/', express.static(path.join(__dirname, '../client/build')));
-app.use('*', express.static(path.join(__dirname, '../client/build')));
+app.use('/', express.static(path.join(__dirname, '../client/dist')));
+app.use('*', express.static(path.join(__dirname, '../client/dist')));
 
 // Start the server
 const startServer = async () => {
