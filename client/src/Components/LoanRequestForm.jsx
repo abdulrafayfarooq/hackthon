@@ -7,7 +7,6 @@ import {
   Box,
   Grid,
   Paper,
-  Alert,
   Container,
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
@@ -60,16 +59,16 @@ const LoanRequestForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-
+  
     try {
       const token = localStorage.getItem("authToken"); // Get the auth token from localStorage
       const userId = localStorage.getItem("userId"); // Get the userId from localStorage
-
+  
       if (!token || !userId) {
         alert("User is not authenticated. Please log in again.");
         return;
       }
-
+  
       // Prepare the API request payload
       const raw = JSON.stringify({
         userId,
@@ -77,34 +76,48 @@ const LoanRequestForm = () => {
         subcategory: formData.subcategory,
         amount: formData.loanAmount,
       });
-
+  
       const myHeaders = new Headers();
       myHeaders.append("Content-Type", "application/json");
       myHeaders.append("Authorization", `Bearer ${token}`);
-
+  
       const requestOptions = {
         method: "POST",
         headers: myHeaders,
         body: raw,
         redirect: "follow",
       };
-
+  
       const response = await fetch("http://192.168.159.92:5000/api/user/loan", requestOptions);
       const result = await response.json();
-
+      console.log(result.loan._id)
+  
       if (response.ok) {
-        // Prepare slip data with appointment details and QR code
-        const slipDetails = {
-          token: result.token || 'Unknown Token', // Fallback if token is missing
-          appointmentDate: result.appointmentDetails?.date || 'No date available', // Safely accessing appointment date
-          appointmentTime: result.appointmentDetails?.time || 'No time available', // Safely accessing appointment time
-          officeLocation: result.appointmentDetails?.location || 'No location available', // Safely accessing appointment location
-          qrCode: result.qrCode || '', // If no QR code is available, an empty string as fallback
+        // Fetch the slip using the token received in the loan request result
+        const slipToken = result.loan._id;
+        const slipRequestOptions = {
+          method: "GET",
+          redirect: "follow",
         };
-        
-
-        setSlipData(slipDetails); // Set slip data to show the generated slip
-        alert("Loan Request Submitted Successfully!");
+  
+        const slipResponse = await fetch(`http://192.168.159.92:5000/api/user/slip/${slipToken}`, slipRequestOptions);
+        const slipResult = await slipResponse.json();
+        if (slipResponse.ok) {
+          // Prepare slip data with appointment details and QR code
+          const slipDetails = {
+            token: slipResult.token || 'Unknown Token', // Fallback if token is missing
+            appointmentDate: slipResult.appointmentDetails?.date || 'No date available', // Safely accessing appointment date
+            appointmentTime: slipResult.appointmentDetails?.time || 'No time available', // Safely accessing appointment time
+            officeLocation: slipResult.appointmentDetails?.location || 'No location available', // Safely accessing appointment location
+            qrCode: slipResult.qrCode || '', // If no QR code is available, an empty string as fallback
+          };
+  
+          setSlipData(slipDetails); // Set slip data to show the generated slip
+          alert("Loan Request Submitted Successfully!");
+        } else {
+          alert("Error fetching loan slip. Please try again.");
+          console.error(slipResult);
+        }
       } else {
         alert("Error submitting loan request. Please try again.");
         console.error(result);
@@ -114,30 +127,47 @@ const LoanRequestForm = () => {
       alert("An error occurred. Please try again.");
     }
   };
+  
 
   // Generate a downloadable image of the slip
   const downloadSlip = () => {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
-
+  
+    // Set canvas size based on content
+    const canvasWidth = 400; // Adjust based on the length of the slip data
+    const canvasHeight = 300 + 128; // Allow space for QR code image (128px height)
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+  console.log("slipData",slipData)
     // Draw appointment details on canvas
     context.font = "16px Arial";
     context.fillText(`Token Number: ${slipData.token}`, 10, 20);
     context.fillText(`Date: ${slipData.appointmentDate}`, 10, 40);
     context.fillText(`Time: ${slipData.appointmentTime}`, 10, 60);
     context.fillText(`Location: ${slipData.officeLocation}`, 10, 80);
-
-    // Draw QR Code on canvas
-    const qrCanvas = document.createElement("canvas");
+  
+    // Create the image for QR Code
     const img = new Image();
-    img.src = slipData.qrCode; // Base64 QR Code image
+    img.src = slipData.qrCode; // The Base64 QR code from your response
+  
     img.onload = () => {
+      // Draw the QR Code on the canvas
       context.drawImage(img, 10, 100);
+  
+      // Convert canvas to image blob and save as PNG file
       canvas.toBlob((blob) => {
         saveAs(blob, `Loan_Slip_${slipData.token}.png`);
-      });
+      }, "image/png");
+    };
+  
+    img.onerror = (error) => {
+      console.error("Error loading QR code image", error);
+      alert("Failed to load QR code image for the slip.");
     };
   };
+  
+  
 
   return (
     <ThemeProvider theme={theme}>
