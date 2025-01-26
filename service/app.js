@@ -25,11 +25,11 @@ app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Serve static files from the React build folder
-app.use(express.static(path.join(__dirname, '../client/build')));
+app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // Catch-all route to serve index.html for any routes not handled by the API
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
 });
 
 // Start Server
